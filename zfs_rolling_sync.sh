@@ -5,24 +5,33 @@ SNAPNAME="$SNAPBASE"_`date +%Y%m%d-%H%M%S`
 HOST='finwe.chchile.org'
 DEST='tank'
 
-rsnaps=$(ssh $HOST zfs list -Hrt snapshot -o name "$1" | grep "@${SNAPBASE}_")
-if [ -z "$rsnaps" ]; then
+rsnaps=$(mktemp -t ${0##*/})
+lsnaps=$(mktemp -t ${0##*/})
+trap "rm -f $rsnaps $lsnaps" EXIT INT TERM
+
+ssh $HOST zfs list -Hrt snapshot -o name "$1" | grep "@${SNAPBASE}_" | \
+    sed 's/.*@//' | sort -n > $rsnaps
+lastsnap=$(tail -n 1 $rsnaps)
+if [ -z "$lastsnap" ]; then
 	cat 1>&2 << EOF
+
 Snapshot on the remote host does not exist.  Please create it using
 ssh $HOST zfs snapshot -r $1@$SNAPNAME
 EOF
 	exit 1
 fi
-lastsnap=`echo "$rsnaps" | sort -n | tail -n 1`
 
-zfs list -Hrt snapshot "$DEST/${1#*/}" 2>/dev/null | grep "@${SNAPBASE}_" >/dev/null
-if [ $? -ne 0 ]; then
+zfs list -Hrt snapshot -o name "$DEST/${1#*/}" | grep "@${SNAPBASE}_" | \
+    sed 's/.*@//' | sort -n > $lsnaps
+lastsnap=$(comm -12 $rsnaps $lsnaps | tail -n 1)
+if [ -z "$lastsnap" ]; then
 	cat 1>&2  << EOF
+
 Snapshot on this system does not exist.  Please transfer it using
-ssh $HOST zfs send -R $lastsnap | zfs receive -d $DEST
+ssh $HOST zfs send -R $1@$lastsnap | zfs receive -d $DEST
 EOF
 	exit 1
 fi
 
 ssh $HOST zfs snapshot -r "$1@$SNAPNAME"
-ssh $HOST zfs send -Ri $lastsnap "$1@$SNAPNAME" | zfs receive -dF $DEST
+ssh $HOST zfs send -Ri "$1@$lastsnap" "$1@$SNAPNAME" | zfs receive -dF $DEST
