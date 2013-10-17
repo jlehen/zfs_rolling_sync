@@ -17,7 +17,7 @@ lsnaps=$(mktemp -t ${0##*/})		# Local
 commonsnaps=$(mktemp -t ${0##*/})	# Common
 trap "rm -f $rsnaps $lsnaps $commonsnaps" EXIT INT TERM
 
-ssh $SRCHOST zfs list -Hrt snapshot -o name "$1" | grep "@${SNAPBASE}_" | \
+ssh $SRCHOST zfs list -Hrt snapshot -o name "$1" | grep "$1@${SNAPBASE}_" | \
     sed 's/.*@//' | sort -n > $rsnaps
 lastsnap=$(tail -n 1 $rsnaps)
 if [ -z "$lastsnap" ]; then
@@ -29,8 +29,8 @@ EOF
 	exit 1
 fi
 
-zfs list -Hrt snapshot -o name "$DESTFS/${1#*/}" | grep "@${SNAPBASE}_" | \
-    sed 's/.*@//' | sort -n > $lsnaps
+zfs list -Hrt snapshot -o name "$DESTFS/${1#*/}" | \
+    grep "$DESTFS/${1#*/}@${SNAPBASE}_" | sed 's/.*@//' | sort -n > $lsnaps
 comm -12 $rsnaps $lsnaps > $commonsnaps
 lastsnap=$(tail -n 1 $commonsnaps)
 if [ -z "$lastsnap" ]; then
