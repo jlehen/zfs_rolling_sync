@@ -5,6 +5,7 @@ SNAPNAME="$SNAPBASE"_`date +%Y%m%d-%H%M%S`
 HOST='finwe.chchile.org'
 DEST='tank'
 MAXSNAP=3
+V=
 
 rsnaps=$(mktemp -t ${0##*/})		# Remote
 lsnaps=$(mktemp -t ${0##*/})		# Local
@@ -37,11 +38,12 @@ EOF
 fi
 
 ssh $HOST zfs snapshot -r "$1@$SNAPNAME"
-ssh $HOST zfs send -Ri "$1@$lastsnap" "$1@$SNAPNAME" | zfs receive -dF $DEST
+ssh $HOST zfs send $V -Ri "$1@$lastsnap" "$1@$SNAPNAME" | \
+    zfs receive $V -dF $DEST
 
 snapcount=$(cat $commonsnaps | wc -l)
 [ $snapcount -le $MAXSNAP ] && exit
 for snap in $(head -n $(($snapcount - $MAXSNAP)) $commonsnaps); do
-	ssh $HOST zfs destroy -r "$1@$snap"
-	zfs destroy -r "$DEST/${1#*/}@$snap"
+	ssh $HOST zfs destroy $V -r "$1@$snap"
+	zfs destroy $V -r "$DEST/${1#*/}@$snap"
 done
