@@ -63,7 +63,7 @@ if [ -z "$lastsnap" ]; then
 	cat 1>&2  << EOF
 
 Snapshot on this system does not exist.  Please transfer it using
-ssh $SRCHOST zfs send -R $SRCDS@$lastsnap | zfs receive -d $DESTDS
+ssh $SRCHOST zfs send -R $SRCDS@$SNAPNAME | zfs receive -d $DESTDS
 EOF
 	exit 1
 fi
