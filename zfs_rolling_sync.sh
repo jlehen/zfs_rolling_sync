@@ -58,18 +58,18 @@ fi
 zfs list -Hrt snapshot -o name "$DESTDS/${SRCDS#*/}" | \
     grep "$DESTDS/${SRCDS#*/}@${SNAPBASE}_" | sed 's/.*@//' | sort -n > $lsnaps
 comm -12 $rsnaps $lsnaps > $commonsnaps
-lastsnap=$(tail -n 1 $commonsnaps)
-if [ -z "$lastsnap" ]; then
+commonsnap=$(tail -n 1 $commonsnaps)
+if [ -z "$commonsnap" ]; then
 	cat 1>&2  << EOF
 
 Snapshot on this system does not exist.  Please transfer it using
-ssh $SRCHOST zfs send -R $SRCDS@$SNAPNAME | zfs receive -d $DESTDS
+ssh $SRCHOST zfs send -R $SRCDS@$lastsnap | zfs receive -d $DESTDS
 EOF
 	exit 1
 fi
 
 ssh $SRCHOST zfs snapshot -r "$SRCDS@$SNAPNAME"
-ssh $SRCHOST zfs send $V -Ri "$SRCDS@$lastsnap" "$SRCDS@$SNAPNAME" | \
+ssh $SRCHOST zfs send $V -Ri "$SRCDS@$commonsnap" "$SRCDS@$SNAPNAME" | \
     zfs receive $V -dF $DESTDS
 
 snapcount=$(cat $commonsnaps | wc -l)
