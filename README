@@ -1,0 +1,25 @@
+zfs_rolling_sync.sh is a simple script to *pull* a ZFS repository periodically, using
+incremental snapshots.
+
+It has been designed to be simple and robust.  Before I had written a
+semi-bloated script that tried to be very versatile and do too many things at
+once.  It ended up not being robust at all and difficult to fix.
+
+The bootstrap has to be done manually, but zfs_rolling_sync.sh will just give you the
+right command to run, so you just have to copy/paste.  Basically, run the command twice
+manually (once to create the remote snapshot, once to do the initial synchronization).
+
+Then you can add the following to your crontab(5), the lockf(1) command is used to
+prevent long runs from stepping on each other (example taken from FreeBSD, YMMV)"
+
+* * * * * root /usr/bin/lockf -st 0 /var/run/zfs_rolling_sync.myjail.lock /root/zfs_rolling_sync/zfs_rolling_sync.sh peerhost::tank/jails/myail tank
+
+
+
+
+Usage: zfs_rolling_sync.sh [-b snapname] [-m maxsnap] [-t tag] [-v] srchost::src/ds dst/ds
+Example: zfs_rolling_sync.sh peerhost::tank/jails/myjail tank
+Defaults:
+  snapbase: zfs_rolling_sync
+  maxsnap: 3
+  tag:
