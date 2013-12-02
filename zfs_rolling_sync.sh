@@ -3,25 +3,27 @@
 usage() {
 	[ $# -ne 0 ] && echo "Error: $*" >&2
 	cat >&2 << EOF
-Usage: ${0##*/} [-b snapname] [-m maxsnap] [-v] srchost::src/ds dst/ds
-Example: ${0##*/} peerhost::tank/jails/myfail tank
+Usage: ${0##*/} [-b snapname] [-m maxsnap] [-t tag] [-v] srchost::src/ds dst/ds
+Example: ${0##*/} peerhost::tank/jails/myjail tank
 EOF
 }
 
-: ${SNAPBASE:=zfs_rolling_sync-`hostname -s`}
+: ${SNAPBASE:=zfs_rolling_sync}
 : ${MAXSNAP:=3}
+: ${SNAPTAG:=}
 : ${V:=}
 
-while getopts 'b:m:v' opt; do
+while getopts 'b:m:t:v' opt; do
 	case "$opt" in
 	b) SNAPBASE="$OPTARG" ;;
 	m) MAXSNAP="$OPTARG" ;;
+	t) SNAPTAG="$OPTARG" ;;
 	v) V="-v" ;;
 	esac
 done
 shift $(($OPTIND - 1))
 
-SNAPNAME="$SNAPBASE"_`date +%Y%m%d-%H%M%S`
+SNAPNAME="$SNAPBASE${SNAPTAG:+-}$SNAPTAG"
 
 SRCHOST="${1%%::*}"
 SRCDS="${1##*::}"
