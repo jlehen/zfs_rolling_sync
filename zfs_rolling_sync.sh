@@ -27,7 +27,7 @@ while getopts 'b:m:t:v' opt; do
 done
 shift $(($OPTIND - 1))
 
-SNAPNAME="$SNAPBASE${SNAPTAG:+-}$SNAPTAG"
+SNAPNAME="$SNAPBASE${SNAPTAG:+-}$SNAPTAG"_`date +%Y%m%d-%H%M%S`
 
 SRCHOST="${1%%::*}"
 SRCDS="${1##*::}"
