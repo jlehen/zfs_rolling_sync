@@ -5,6 +5,10 @@ usage() {
 	cat >&2 << EOF
 Usage: ${0##*/} [-b snapname] [-m maxsnap] [-t tag] [-v] srchost::src/ds dst/ds
 Example: ${0##*/} peerhost::tank/jails/myjail tank
+Defaults:
+  snapbase: zfs_rolling_sync
+  maxsnap: 3
+  tag:
 EOF
 }
 
