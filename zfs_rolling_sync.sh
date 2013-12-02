@@ -10,6 +10,7 @@ Defaults:
   maxsnap: 3
   tag:
 EOF
+	exit 1
 }
 
 : ${SNAPBASE:=zfs_rolling_sync}
