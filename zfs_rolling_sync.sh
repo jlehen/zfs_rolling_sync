@@ -30,6 +30,7 @@ shift $(($OPTIND - 1))
 
 SNAPBASE="$SNAPBASE${SNAPTAG:+-}$SNAPTAG"
 SNAPNAME="$SNAPBASE"_`date +%Y%m%d-%H%M%S`
+DATEREGEX='[0-9]\{8\}-[0-9]\{6\}'
 
 SRCHOST="${1%%::*}"
 SRCDS="${1##*::}"
@@ -52,7 +53,8 @@ commonsnaps=$(mktemp -t ${0##*/})	# Common
 trap "rm -f $rsnaps $lsnaps $commonsnaps" EXIT INT TERM
 
 ssh $SRCHOST zfs list -Hrt snapshot -o name "$SRCDS" | \
-    grep "$SRCDS@${SNAPBASE}_" | sed 's/.*@//' | sort -n > $rsnaps
+    grep "$SRCDS@${SNAPBASE}_${DATEREGEX}'" | \
+    sed 's/.*@//' | sort -n > $rsnaps
 lastsnap=$(tail -n 1 $rsnaps)
 if [ -z "$lastsnap" ]; then
 	cat 1>&2 << EOF
@@ -64,7 +66,8 @@ EOF
 fi
 
 zfs list -Hrt snapshot -o name "$DESTDS/${SRCDS#*/}" | \
-    grep "$DESTDS/${SRCDS#*/}@${SNAPBASE}_" | sed 's/.*@//' | sort -n > $lsnaps
+    grep "$DESTDS/${SRCDS#*/}@${SNAPBASE}_${DATEREGEX}'" | \
+    sed 's/.*@//' | sort -n > $lsnaps
 comm -12 $rsnaps $lsnaps > $commonsnaps
 commonsnap=$(tail -n 1 $commonsnaps)
 if [ -z "$commonsnap" ]; then
