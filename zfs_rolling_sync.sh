@@ -63,8 +63,14 @@ EOF
 	exit 1
 fi
 
+# Keep only snapshots name that appear on every datasets.
+# When a zfs receive is interrupted, some dataset may have the latest
+# snapshots while the others don't, leading to incremental transfers problems.
+nds=$(zfs list -Hr -o name "$DESTDS/${SRCDS#*/}" | grep -c .)
+
 zfs list -Hrt snapshot -o name "$DESTDS/${SRCDS#*/}" | \
-    grep "$DESTDS/${SRCDS#*/}@${SNAPBASE}_" | sed 's/.*@//' | sort -n > $lsnaps
+    grep "@${SNAPBASE}_" | sed 's/.*@//' | sort -n | uniq -c | \
+    awk '$1 == '$nds' {print $2}' > $lsnaps
 comm -12 $rsnaps $lsnaps > $commonsnaps
 commonsnap=$(tail -n 1 $commonsnaps)
 if [ -z "$commonsnap" ]; then
