@@ -5,7 +5,8 @@ usage() {
 	cat >&2 << EOF
 Usage: ${0##*/} [options] [srchost::]src/ds [dsthost::]dst/ds
 Options:
-  -b snapname	Change the basename of the snapshot
+  -b snapname	Change the basename of the snapshot.
+  -c		Clean leftover snapshots after broken transfer afterwards.
   -m maxnap	Maximum number of snapshots to keep
   -t tag	Tag snapshots with this (in addition to snapbase)
   -v		Be verbose while sending/receiving datasets.
@@ -27,16 +28,19 @@ dstzfs() {
 }
 
 : ${SNAPBASE:=zfs_rolling_sync}
+: ${CLEANLEFTOVERS:=}
 : ${MAXSNAP:=3}
 : ${SNAPTAG:=}
 : ${V:=}
 
-while getopts 'b:m:t:v' opt; do
+while getopts 'b:cm:t:v' opt; do
 	case "$opt" in
 	b) SNAPBASE="$OPTARG" ;;
+	c) CLEANLEFTOVERS=1 ;;
 	m) MAXSNAP="$OPTARG" ;;
 	t) SNAPTAG="$OPTARG" ;;
 	v) V="-v" ;;
+	\?) exit 1 ;;
 	esac
 done
 shift $(($OPTIND - 1))
@@ -66,9 +70,9 @@ case "$V" in
 *) V=-v; ECHO=echo ;;
 esac
 
-srcsnaps=$(mktemp -t ${0##*/})		# Remote
-dstsnaps=$(mktemp -t ${0##*/})		# Local
-commonsnaps=$(mktemp -t ${0##*/})	# Common
+srcsnaps=$(mktemp -t ${0##*/}.src)	# Remote
+dstsnaps=$(mktemp -t ${0##*/}.dst)	# Local
+commonsnaps=$(mktemp -t ${0##*/}.comm)	# Common
 trap "rm -f $srcsnaps $dstsnaps $commonsnaps" EXIT INT TERM
 
 srczfs list -Hrt snapshot -o name "$SRCDS" | \
@@ -109,9 +113,17 @@ srczfs send $V -Ri "$SRCDS@$commonsnap" "$SRCDS@$SNAPNAME" | \
     dstzfs receive $V -dF $DSTDS
 
 snapcount=$(cat $commonsnaps | wc -l)
-[ $snapcount -le $MAXSNAP ] && exit
-$ECHO "===> Deleteting old snapshots"
-for snap in $(head -n $(($snapcount - $MAXSNAP)) $commonsnaps); do
-	srczfs destroy $V -r "$SRCDS@$snap"
-	dstzfs destroy $V -r "$DSTDS/${SRCDS#*/}@$snap"
-done
+if [ $snapcount -gt $MAXSNAP ]; then
+	$ECHO "===> Deleteting old snapshots"
+	for snap in $(head -n $(($snapcount - $MAXSNAP)) $commonsnaps); do
+		srczfs destroy $V -r "$SRCDS@$snap"
+		dstzfs destroy $V -r "$DSTDS/${SRCDS#*/}@$snap"
+	done
+fi
+
+if [ -n "${CLEANLEFTOVERS}" ]; then
+	$ECHO "===> Deleteting leftover snapshots"
+	for snap in $(comm -23 $srcsnaps $dstsnaps); do
+		srczfs destroy $V -r "$SRCDS@$snap"
+	done
+fi
