@@ -3,14 +3,27 @@
 usage() {
 	[ $# -ne 0 ] && echo "Error: $*" >&2
 	cat >&2 << EOF
-Usage: ${0##*/} [-b snapname] [-m maxsnap] [-t tag] [-v] srchost::src/ds dst/ds
-Example: ${0##*/} peerhost::tank/jails/myjail tank
+Usage: ${0##*/} [options] [srchost::]src/ds [dsthost::]dst/ds
+Options:
+  -b snapname	Change the basename of the snapshot
+  -m maxnap	Maximum number of snapshots to keep
+  -t tag	Tag snapshots with this (in addition to snapbase)
+  -v		Be verbose while sending/receiving datasets.
 Defaults:
   snapbase: zfs_rolling_sync
   maxsnap: 3
   tag:
+Example: ${0##*/} peerhost::tank/jails/myjail tank
 EOF
 	exit 1
+}
+
+srczfs() {
+	${SRCHOST:+ssh $SRCHOST} zfs "$@"
+}
+
+dstzfs() {
+	${DSTHOST:+ssh $DSTHOST} zfs "$@"
 }
 
 : ${SNAPBASE:=zfs_rolling_sync}
@@ -31,13 +44,20 @@ shift $(($OPTIND - 1))
 SNAPBASE="$SNAPBASE${SNAPTAG:+-}$SNAPTAG"
 SNAPNAME="$SNAPBASE"_`date +%Y%m%d-%H%M%S`
 
-SRCHOST="${1%%::*}"
 SRCDS="${1##*::}"
-DESTDS="$2"
+case "$1" in
+*::*) SRCHOST="${1%%::*}" ;;
+*) SRCHOST= ;;
+esac
 
-case "$SRCHOST:$SRCDS:$DESTDS" in
-:*) usage "Missing source host" ;;
-*::*) usage "Missing source filesystem" ;;
+DSTDS="${2##*::}"
+case "$2" in
+*::*) DSTHOST="${2%%::*}" ;;
+*) DSTHOST= ;;
+esac
+
+case "$SRCDS:$DSTDS" in
+:*) usage "Missing source filesystem" ;;
 *:) usage "Missing destination filesystem" ;;
 esac
 
@@ -51,14 +71,14 @@ lsnaps=$(mktemp -t ${0##*/})		# Local
 commonsnaps=$(mktemp -t ${0##*/})	# Common
 trap "rm -f $rsnaps $lsnaps $commonsnaps" EXIT INT TERM
 
-ssh $SRCHOST zfs list -Hrt snapshot -o name "$SRCDS" | \
+srczfs list -Hrt snapshot -o name "$SRCDS" | \
     grep "$SRCDS@${SNAPBASE}_" | sed 's/.*@//' | sort -n > $rsnaps
 lastsnap=$(tail -n 1 $rsnaps)
 if [ -z "$lastsnap" ]; then
 	cat 1>&2 << EOF
 
 Snapshot on the remote host does not exist.  Please create it using
-ssh $SRCHOST zfs snapshot -r $SRCDS@$SNAPNAME
+${SRCHOST:+ssh $SRCHOST }zfs snapshot -r $SRCDS@$SNAPNAME
 EOF
 	exit 1
 fi
@@ -66,9 +86,9 @@ fi
 # Keep only snapshots name that appear on every datasets.
 # When a zfs receive is interrupted, some dataset may have the latest
 # snapshots while the others don't, leading to incremental transfers problems.
-nds=$(zfs list -Hr -o name "$DESTDS/${SRCDS#*/}" | grep -c .)
+nds=$(dstzfs list -Hr -o name "$DSTDS/${SRCDS#*/}" | grep -c .)
 
-zfs list -Hrt snapshot -o name "$DESTDS/${SRCDS#*/}" | \
+dstzfs list -Hrt snapshot -o name "$DSTDS/${SRCDS#*/}" | \
     grep "@${SNAPBASE}_" | sed 's/.*@//' | sort -n | uniq -c | \
     awk '$1 == '$nds' {print $2}' > $lsnaps
 comm -12 $rsnaps $lsnaps > $commonsnaps
@@ -77,18 +97,18 @@ if [ -z "$commonsnap" ]; then
 	cat 1>&2  << EOF
 
 Snapshot on this system does not exist.  Please transfer it using
-ssh $SRCHOST zfs send -R $SRCDS@$lastsnap | zfs receive -d $DESTDS
+${SRCHOST:+ssh $SRCHOST }zfs send -R $SRCDS@$lastsnap | ${DSTHOST:+ssh $DSTHOST }zfs receive -d $DSTDS
 EOF
 	exit 1
 fi
 
-ssh $SRCHOST zfs snapshot -r "$SRCDS@$SNAPNAME"
-ssh $SRCHOST zfs send $V -Ri "$SRCDS@$commonsnap" "$SRCDS@$SNAPNAME" | \
-    zfs receive $V -dF $DESTDS
+srczfs snapshot -r "$SRCDS@$SNAPNAME"
+srczfs send $V -Ri "$SRCDS@$commonsnap" "$SRCDS@$SNAPNAME" | \
+    dstzfs receive $V -dF $DSTDS
 
 snapcount=$(cat $commonsnaps | wc -l)
 [ $snapcount -le $MAXSNAP ] && exit
 for snap in $(head -n $(($snapcount - $MAXSNAP)) $commonsnaps); do
-	ssh $SRCHOST zfs destroy $V -r "$SRCDS@$snap"
-	zfs destroy $V -r "$DESTDS/${SRCDS#*/}@$snap"
+	srczfs destroy $V -r "$SRCDS@$snap"
+	dstzfs destroy $V -r "$DSTDS/${SRCDS#*/}@$snap"
 done
