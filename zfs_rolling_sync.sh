@@ -66,14 +66,14 @@ case "$V" in
 *) V=-v; ECHO=echo ;;
 esac
 
-rsnaps=$(mktemp -t ${0##*/})		# Remote
-lsnaps=$(mktemp -t ${0##*/})		# Local
+srcsnaps=$(mktemp -t ${0##*/})		# Remote
+dstsnaps=$(mktemp -t ${0##*/})		# Local
 commonsnaps=$(mktemp -t ${0##*/})	# Common
-trap "rm -f $rsnaps $lsnaps $commonsnaps" EXIT INT TERM
+trap "rm -f $srcsnaps $dstsnaps $commonsnaps" EXIT INT TERM
 
 srczfs list -Hrt snapshot -o name "$SRCDS" | \
-    grep "$SRCDS@${SNAPBASE}_" | sed 's/.*@//' | sort -n > $rsnaps
-lastsnap=$(tail -n 1 $rsnaps)
+    grep "$SRCDS@${SNAPBASE}_" | sed 's/.*@//' | sort -n > $srcsnaps
+lastsnap=$(tail -n 1 $srcsnaps)
 if [ -z "$lastsnap" ]; then
 	cat 1>&2 << EOF
 
@@ -90,8 +90,8 @@ nds=$(dstzfs list -Hr -o name "$DSTDS/${SRCDS#*/}" | grep -c .)
 
 dstzfs list -Hrt snapshot -o name "$DSTDS/${SRCDS#*/}" | \
     grep "@${SNAPBASE}_" | sed 's/.*@//' | sort -n | uniq -c | \
-    awk '$1 == '$nds' {print $2}' > $lsnaps
-comm -12 $rsnaps $lsnaps > $commonsnaps
+    awk '$1 == '$nds' {print $2}' > $dstsnaps
+comm -12 $srcsnaps $dstsnaps > $commonsnaps
 commonsnap=$(tail -n 1 $commonsnaps)
 if [ -z "$commonsnap" ]; then
 	cat 1>&2  << EOF
