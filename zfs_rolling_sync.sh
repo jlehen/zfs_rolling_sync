@@ -62,8 +62,8 @@ case "$SRCDS:$DSTDS" in
 esac
 
 case "$V" in
-'') V= ;;
-*) V=-v ;;
+'') V=; ECHO=: ;;
+*) V=-v; ECHO=echo ;;
 esac
 
 rsnaps=$(mktemp -t ${0##*/})		# Remote
@@ -102,12 +102,15 @@ EOF
 	exit 1
 fi
 
+$ECHO "===> Creating source snapshot $SRCDS@$SNAPNAME"
 srczfs snapshot -r "$SRCDS@$SNAPNAME"
+$ECHO "===> Transferring source snapshot to $DSTDS"
 srczfs send $V -Ri "$SRCDS@$commonsnap" "$SRCDS@$SNAPNAME" | \
     dstzfs receive $V -dF $DSTDS
 
 snapcount=$(cat $commonsnaps | wc -l)
 [ $snapcount -le $MAXSNAP ] && exit
+$ECHO "===> Deleteting old snapshots"
 for snap in $(head -n $(($snapcount - $MAXSNAP)) $commonsnaps); do
 	srczfs destroy $V -r "$SRCDS@$snap"
 	dstzfs destroy $V -r "$DSTDS/${SRCDS#*/}@$snap"
