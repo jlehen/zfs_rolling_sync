@@ -47,6 +47,7 @@ shift $(($OPTIND - 1))
 
 SNAPBASE="$SNAPBASE${SNAPTAG:+-}$SNAPTAG"
 SNAPNAME="$SNAPBASE"_`date +%Y%m%d-%H%M%S`
+SNAPREGEX="$SNAPBASE"_'[0-9]\{8\}-[0-9]\{6\}$'
 
 SRCDS="${1##*::}"
 case "$1" in
@@ -76,7 +77,7 @@ commonsnaps=$(mktemp -t ${0##*/}.comm)	# Common
 trap "rm -f $srcsnaps $dstsnaps $commonsnaps" EXIT INT TERM
 
 srczfs list -Hrt snapshot -o name "$SRCDS" | \
-    grep "$SRCDS@${SNAPBASE}_" | sed 's/.*@//' | sort -n > $srcsnaps
+    grep "$SRCDS@$SNAPREGEX" | sed 's/.*@//' | sort -n > $srcsnaps
 lastsnap=$(tail -n 1 $srcsnaps)
 if [ -z "$lastsnap" ]; then
 	cat 1>&2 << EOF
@@ -93,7 +94,7 @@ fi
 nds=$(dstzfs list -Hr -o name "$DSTDS/${SRCDS#*/}" | grep -c .)
 
 dstzfs list -Hrt snapshot -o name "$DSTDS/${SRCDS#*/}" | \
-    grep "@${SNAPBASE}_" | sed 's/.*@//' | sort -n | uniq -c | \
+    grep "@$SNAPREGEX" | sed 's/.*@//' | sort -n | uniq -c | \
     awk '$1 == '$nds' {print $2}' > $dstsnaps
 comm -12 $srcsnaps $dstsnaps > $commonsnaps
 commonsnap=$(tail -n 1 $commonsnaps)
