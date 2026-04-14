@@ -1,20 +1,26 @@
 #!/bin/sh
 
+BASENAME="${0##*/}"
+
 usage() {
 	[ $# -ne 0 ] && echo "Error: $*" >&2
 	cat >&2 << EOF
 Usage: ${0##*/} [options] [srchost::]src/ds [dsthost::]dst/ds
 Options:
-  -b snapname	Change the basename of the snapshot.
+  -b snapbase	Change the basename of the snapshot.
   -c		Clean leftover snapshots after broken transfer afterwards.
   -m maxnap	Maximum number of snapshots to keep
-  -t tag	Tag snapshots with this (in addition to snapbase)
+  -t tag	Tag snapshots with this (in addition to <snapbase>)
   -v		Be verbose while sending/receiving datasets.
 Defaults:
   snapbase: zfs_rolling_sync
   maxsnap: 3
   tag:
-Example: ${0##*/} peerhost::tank/jails/myjail tank
+Example:
+  ${0##*/} peerhost::tank/jails/myjail tank
+Bootstrap:
+  Upon the first run, $BASENAME will give you the right command to run to
+  initialize the first ZFS snapshot. Afterwards, you can re-run the script.
 EOF
 	exit 1
 }
@@ -27,7 +33,7 @@ dstzfs() {
 	${DSTHOST:+ssh $DSTHOST} zfs "$@"
 }
 
-: ${SNAPBASE:=zfs_rolling_sync}
+: ${SNAPBASE:=${BASENAME%.*}}
 : ${CLEANLEFTOVERS:=}
 : ${MAXSNAP:=3}
 : ${SNAPTAG:=}

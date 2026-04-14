@@ -17,17 +17,19 @@ runs from stepping on each other (example taken from FreeBSD, YMMV):
 * * * * * root /usr/bin/lockf -st 0 /var/run/zfs_rolling_sync.myjail.lock /root/zfs_rolling_sync/zfs_rolling_sync.sh peerhost::tank/jails/myail tank
 
 
-
-
-Usage: zfs_rolling_sync.sh [-b snapname] [-m maxsnap] [-t tag] [-v] \
-           srchost::src/ds dst/ds
-Example: zfs_rolling_sync.sh peerhost::tank/jails/myjail tank
+Usage: zfs_rolling_sync.sh [options] [srchost::]src/ds [dsthost::]dst/ds
 Options:
-  -b        changes the base snapshot name
-  -m        defines the maximum of old backups to keep
-  -t        defines a tag to add to the snapshot name
-  -v        guess what?
+  -b snapbase   Change the basename of the snapshot.
+  -c            Clean leftover snapshots after broken transfer afterwards.
+  -m maxnap     Maximum number of snapshots to keep
+  -t tag        Tag snapshots with this (in addition to <snapbase>)
+  -v            Be verbose while sending/receiving datasets.
 Defaults:
   snapbase: zfs_rolling_sync
   maxsnap: 3
   tag:
+Example:
+  zfs_rolling_sync.sh peerhost::tank/jails/myjail tank
+Bootstrap:
+  Upon the first run, zfs_rolling_sync.sh will give you the right command to run to
+  initialize the first ZFS snapshot. Afterwards, you can re-run the script.
