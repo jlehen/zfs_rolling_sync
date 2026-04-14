@@ -21,8 +21,9 @@ Usage: zfs_rolling_sync.sh [options] [srchost::]src/ds [dsthost::]dst/ds
 Options:
   -b snapbase   Change the basename of the snapshot.
   -c            Clean leftover snapshots after broken transfer afterwards.
-  -m maxnap     Maximum number of snapshots to keep
-  -t tag        Tag snapshots with this (in addition to <snapbase>)
+  -m maxnap     Maximum number of snapshots to keep.
+  -t tag        Tag snapshots with this (in addition to <snapbase>).
+                For example: $HOST when sync'ing from multiple hosts.
   -v            Be verbose while sending/receiving datasets.
 Defaults:
   snapbase: zfs_rolling_sync
